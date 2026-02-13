@@ -1,18 +1,13 @@
 import { Router } from 'express';
 import { 
-  createProduct, 
   getAllProducts, 
   getProductById, 
-  updateProduct,
-  deleteProduct,
   getProductsByCategory,
   getBestSellingProducts,
   searchProducts
 } from '../controllers/productController';
 import { validate } from '../middleware/validate';
 import { 
-  createProductSchema, 
-  updateProductSchema, 
   getProductByIdSchema,
   getProductsByCategorySchema,
   searchProductsSchema
@@ -20,13 +15,23 @@ import {
 
 const router = Router();
 
-router.post('/', validate(createProductSchema), createProduct);
+// ======================
+// PUBLIC PRODUCT ROUTES (No Authentication Required)
+// ======================
+
+// Search products with filters
 router.get('/search', validate(searchProductsSchema), searchProducts);
+
+// Get all active products
 router.get('/', getAllProducts);
+
+// Get best-selling products
 router.get('/best-sellers', getBestSellingProducts);
+
+// Get products by category
 router.get('/category/:category', validate(getProductsByCategorySchema), getProductsByCategory);
-router.get('/:id', validate(getProductByIdSchema), getProductById);
-router.put('/:id', validate(updateProductSchema), updateProduct);
-router.delete('/:id', deleteProduct);
+
+// Get single product by ID
+router.get('/:productId', validate(getProductByIdSchema), getProductById);
 
 export default router;

@@ -56,7 +56,10 @@ export const updateProductSchema = z.object({
 // Get Product by ID Schema
 export const getProductByIdSchema = z.object({
   params: z.object({
-    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid product ID'),
+    productId: z
+      .string()
+      .min(1, 'Product ID is required')
+      .regex(/^[a-zA-Z0-9-_]+$/, 'Invalid product ID format'),
   }),
 });
 
@@ -87,3 +90,20 @@ export const searchProductsSchema = z.object({
 });
 
 export type SearchProductsInput = z.infer<typeof searchProductsSchema>;
+
+// Bulk Upload Validation Schema
+export const bulkUploadSchema = z.object({
+  file: z.object({
+    mimetype: z.string().refine(
+      (mimetype) =>
+        mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        mimetype === 'application/vnd.ms-excel',
+      {
+        message: 'File must be an Excel file (.xlsx or .xls)',
+      }
+    ),
+    size: z.number().max(5 * 1024 * 1024, 'File size must be less than 5MB'),
+  }),
+});
+
+export type BulkUploadInput = z.infer<typeof bulkUploadSchema>;

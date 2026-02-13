@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import Product from '../../db/models/Product';
+import * as XLSX from 'xlsx';
 
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -21,7 +22,7 @@ export const getAllProducts = async (req: Request, res: Response): Promise<void>
 
 export const getProductById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ productId: req.params.productId });
     if (!product) {
       res.status(404).json({ message: 'Product not found' });
       return;
@@ -161,5 +162,117 @@ export const searchProducts = async (req: Request, res: Response): Promise<void>
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+// Bulk add products from Excel file
+export const bulkAddProducts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ message: 'No file uploaded' });
+      return;
+    }
+
+    // Read the Excel file from buffer
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    
+    // Get the first sheet
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    
+    // Convert sheet to JSON, skipping the first row (headers)
+    const data = XLSX.utils.sheet_to_json(worksheet);
+    
+    if (data.length === 0) {
+      res.status(400).json({ message: 'Excel file is empty or has no data rows' });
+      return;
+    }
+
+    // Create products from Excel data
+    const results = {
+      success: [] as any[],
+      failed: [] as any[]
+    };
+
+    for (let i = 0; i < data.length; i++) {
+      try {
+        const row: any = data[i];
+        
+        // Map Excel columns to product fields
+        // Adjust these field names based on your Excel column headers
+        const productData: any = {
+          name: row.name || row.Name,
+          description: row.description || row.Description,
+          price: Number(row.price || row.Price),
+          category: row.category || row.Category || 'sweets',
+          stock: row.stock !== undefined ? Number(row.stock) : (row.Stock !== undefined ? Number(row.Stock) : 0),
+          weight: row.weight || row.Weight,
+          isActive: row.isActive !== undefined ? row.isActive : (row.IsActive !== undefined ? row.IsActive : true),
+          isBestSeller: row.isBestSeller || row.IsBestSeller || false,
+          isFeatured: row.isFeatured || row.IsFeatured || false
+        };
+
+        // Handle optional numeric fields
+        if (row.originalPrice || row.OriginalPrice) {
+          productData.originalPrice = Number(row.originalPrice || row.OriginalPrice);
+        }
+        if (row.discount || row.Discount) {
+          productData.discount = Number(row.discount || row.Discount);
+        }
+
+        // Handle array fields (comma-separated in Excel)
+        if (row.images || row.Images) {
+          const imageString = row.images || row.Images;
+          productData.images = typeof imageString === 'string' 
+            ? imageString.split(',').map((img: string) => img.trim()).filter((img: string) => img)
+            : [];
+        }
+
+        if (row.tags || row.Tags) {
+          const tagString = row.tags || row.Tags;
+          productData.tags = typeof tagString === 'string' 
+            ? tagString.split(',').map((tag: string) => tag.trim().toLowerCase()).filter((tag: string) => tag)
+            : [];
+        }
+
+        if (row.ingredients || row.Ingredients) {
+          const ingredientString = row.ingredients || row.Ingredients;
+          productData.ingredients = typeof ingredientString === 'string' 
+            ? ingredientString.split(',').map((ing: string) => ing.trim()).filter((ing: string) => ing)
+            : [];
+        }
+
+        // Remove undefined/null fields
+        Object.keys(productData).forEach(key => {
+          if (productData[key] === undefined || productData[key] === null) {
+            delete productData[key];
+          }
+        });
+
+        const product = await Product.create(productData);
+        results.success.push({ row: i + 2, product: product._id, name: product.name });
+      } catch (error: any) {
+        results.failed.push({ 
+          row: i + 2, 
+          error: error.message || 'Failed to create product',
+          data: data[i]
+        });
+      }
+    }
+
+    res.status(200).json({
+      message: 'Bulk import completed',
+      summary: {
+        total: data.length,
+        successful: results.success.length,
+        failed: results.failed.length
+      },
+      results
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      message: 'Server error during bulk import', 
+      error: error.message || error 
+    });
   }
 };

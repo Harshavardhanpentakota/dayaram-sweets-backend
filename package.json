@@ -7,7 +7,8 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "create-admin": "ts-node scripts/createSuperAdmin.ts"
   },
   "repository": {
     "type": "git",
@@ -33,8 +34,10 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.0",
+    "multer": "^2.0.2",
     "nodemailer": "^7.0.13",
     "resend": "^6.9.1",
+    "xlsx": "^0.18.5",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -42,6 +45,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.5",
+    "@types/multer": "^2.0.0",
     "@types/node": "^20.10.0",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2",

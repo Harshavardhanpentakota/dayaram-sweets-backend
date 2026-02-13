@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IProduct extends Document {
+  productId?: string;
   name: string;
   description: string;
   category: string;
@@ -31,6 +32,12 @@ export interface IProduct extends Document {
 
 const ProductSchema: Schema = new Schema(
   {
+    productId: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+    },
     name: {
       type: String,
       required: [true, 'Product name is required'],
@@ -125,5 +132,6 @@ ProductSchema.index({ category: 1 });
 ProductSchema.index({ isActive: 1 });
 ProductSchema.index({ isFeatured: 1 });
 ProductSchema.index({ price: 1 });
+ProductSchema.index({ productId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model<IProduct>('Product', ProductSchema);
