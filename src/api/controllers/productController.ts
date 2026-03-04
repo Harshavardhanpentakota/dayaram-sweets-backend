@@ -1,6 +1,38 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Product from '../../db/models/Product';
 import * as XLSX from 'xlsx';
+
+const CATEGORY_MAP: Record<string, string> = {
+  'andhra': 'Andhra Sweets',
+  'andhra sweets': 'Andhra Sweets',
+  'cashew': 'Cashew Sweets',
+  'kaju': 'Cashew Sweets',
+  'cashew sweets': 'Cashew Sweets',
+  'bengali': 'Bengali Sweets',
+  'bengali sweets': 'Bengali Sweets',
+  'khoya': 'Khoya Sweets',
+  'khoya sweets': 'Khoya Sweets',
+  'laddu': 'Laddu Sweets',
+  'laddu sweets': 'Laddu Sweets',
+  'milk': 'Milk Sweets',
+  'milk sweets': 'Milk Sweets',
+  'home': 'Home Foods',
+  'home foods': 'Home Foods',
+  'other': 'Category Unspecified',
+  'category unspecified': 'Category Unspecified',
+  'sweets': 'Category Unspecified',
+  'namkeen': 'Category Unspecified',
+  'dry-fruits': 'Category Unspecified',
+  'gift-boxes': 'Category Unspecified',
+  'seasonal': 'Category Unspecified',
+};
+
+const toCanonicalCategory = (rawValue: unknown): string => {
+  if (typeof rawValue !== 'string') return 'Category Unspecified';
+  const normalized = rawValue.trim().toLowerCase();
+  return CATEGORY_MAP[normalized] || 'Category Unspecified';
+};
 
 export const createProduct = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -54,14 +86,209 @@ export const getBestSellingProducts = async (req: Request, res: Response): Promi
   }
 };
 
+export const getSpecialCollections = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const products = await Product.find({
+      isActive: true,
+      collection: { $nin: ['', 'best-seller'] },
+    }).lean();
+
+    const formattedProducts = products.map((product: any) => ({
+      ...product,
+      collection: product?.collection || '',
+    }));
+
+    res.status(200).json(formattedProducts);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+export const getSpecialCollection = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const collections = await Product.aggregate([
+      {
+        $match: {
+          isActive: true,
+          collection: { $ne: '' },
+        },
+      },
+      { $sort: { updatedAt: -1, createdAt: -1 } },
+      {
+        $group: {
+          _id: '$collection',
+          products: { $push: '$$ROOT' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          collection_name: '$_id',
+          products: 1,
+        },
+      },
+      { $sort: { collection_name: 1 } },
+    ]);
+
+    res.status(200).json(collections);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const product = await Product.findOneAndUpdate(
+      { productId: req.params.productId },
+      req.body,
+      { new: true }
+    );
     if (!product) {
       res.status(404).json({ message: 'Product not found' });
       return;
     }
     res.status(200).json({ message: 'Product updated successfully', product });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+export const modifyCollection = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const payload = Array.isArray(req.body) ? { products: req.body } : req.body;
+    const products = Array.isArray(payload?.products) ? payload.products : [];
+    const collectionName = typeof payload?.collectionName === 'string' ? payload.collectionName.trim() : '';
+    const isCollectionNameModified = payload?.isCollectionNameModified === true;
+
+    const productIds = products
+      .map((item: any) => {
+        if (typeof item === 'string') {
+          return item.trim();
+        }
+
+        if (item && typeof item.productId === 'string') {
+          return item.productId.trim();
+        }
+
+        return '';
+      })
+      .filter((productId: string) => productId.length > 0);
+
+    const objectIds = products
+      .map((item: any) => {
+        if (item && typeof item._id === 'string' && mongoose.Types.ObjectId.isValid(item._id)) {
+          return new mongoose.Types.ObjectId(item._id);
+        }
+
+        return null;
+      })
+      .filter((value: mongoose.Types.ObjectId | null): value is mongoose.Types.ObjectId => value !== null);
+
+    const uniqueProductIds = Array.from(new Set(productIds));
+    const uniqueObjectIds = Array.from(
+      new Map<string, mongoose.Types.ObjectId>(
+        objectIds.map((value: mongoose.Types.ObjectId) => [value.toHexString(), value])
+      ).values()
+    );
+
+    const targetFilters: Array<Record<string, unknown>> = [];
+
+    if (uniqueProductIds.length > 0) {
+      targetFilters.push({ productId: { $in: uniqueProductIds } });
+    }
+
+    if (uniqueObjectIds.length > 0) {
+      targetFilters.push({ _id: { $in: uniqueObjectIds } });
+    }
+
+    const matchedProducts = targetFilters.length > 0
+      ? await Product.find(
+          targetFilters.length === 1 ? targetFilters[0] : { $or: targetFilters },
+          { _id: 1, productId: 1, collection: 1, isBestSeller: 1 }
+        ).lean()
+      : [];
+
+    const matchedProductIds = new Set(
+      matchedProducts
+        .map((product: any) => (typeof product.productId === 'string' ? product.productId : ''))
+        .filter((productId: string) => productId.length > 0)
+    );
+
+    const matchedObjectIds = new Set(
+      matchedProducts.map((product: any) => String(product._id))
+    );
+
+    const notFoundProductIds = uniqueProductIds.filter((productId) => !matchedProductIds.has(productId));
+    const notFoundObjectIds = uniqueObjectIds
+      .map((objectId) => objectId.toHexString())
+      .filter((objectId) => !matchedObjectIds.has(objectId));
+
+    let explicitlyUpdatedCount = 0;
+
+    if (matchedProducts.length > 0) {
+      const explicitUpdateResult = await Product.updateMany(
+        {
+          _id: { $in: matchedProducts.map((product: any) => product._id) },
+        },
+        [
+          {
+            $set: {
+              collection: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $trim: {
+                          input: {
+                            $ifNull: ['$collection', ''],
+                          },
+                        },
+                      },
+                      collectionName,
+                    ],
+                  },
+                  '',
+                  collectionName,
+                ],
+              },
+            },
+          },
+        ]
+      );
+      explicitlyUpdatedCount = explicitUpdateResult.modifiedCount;
+    }
+
+    let reassignedCollectionCount = 0;
+
+    if (isCollectionNameModified) {
+      const reassignResult = await Product.updateMany(
+        {
+          isActive: true,
+          collection: { $nin: ['', collectionName] },
+        },
+        {
+          $set: { collection: collectionName },
+        }
+      );
+
+      reassignedCollectionCount = reassignResult.modifiedCount;
+    }
+
+    res.status(200).json({
+      message: 'Collection updated successfully',
+      collectionName,
+      explicitlyUpdatedCount,
+      reassignedCollectionCount,
+      isCollectionNameModified,
+      matchedProducts: matchedProducts.map((product: any) => ({
+        _id: product._id,
+        productId: product.productId,
+        previousCollection: product.collection || '',
+        isBestSeller: product.isBestSeller,
+      })),
+      notFoundProductIds,
+      notFoundObjectIds,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -204,12 +431,11 @@ export const bulkAddProducts = async (req: Request, res: Response): Promise<void
           name: row.name || row.Name,
           description: row.description || row.Description,
           price: Number(row.price || row.Price),
-          category: row.category || row.Category || 'sweets',
+          category: toCanonicalCategory(row.category || row.Category),
           stock: row.stock !== undefined ? Number(row.stock) : (row.Stock !== undefined ? Number(row.Stock) : 0),
           weight: row.weight || row.Weight,
           isActive: row.isActive !== undefined ? row.isActive : (row.IsActive !== undefined ? row.IsActive : true),
-          isBestSeller: row.isBestSeller || row.IsBestSeller || false,
-          isFeatured: row.isFeatured || row.IsFeatured || false
+          isBestSeller: row.isBestSeller || row.IsBestSeller || row.isFeatured || row.IsFeatured || false
         };
 
         // Handle optional numeric fields
@@ -274,5 +500,197 @@ export const bulkAddProducts = async (req: Request, res: Response): Promise<void
       message: 'Server error during bulk import', 
       error: error.message || error 
     });
+  }
+};
+
+// Bulk add products from JSON input array
+export const addBulkProductsByInput = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const products = Array.isArray(req.body) ? req.body : req.body?.products;
+
+    if (!Array.isArray(products) || products.length === 0) {
+      res.status(400).json({ message: 'Products array is required and cannot be empty' });
+      return;
+    }
+
+    const normalizedProducts = products.map((product: any) => {
+      return {
+        ...product,
+        category: toCanonicalCategory(product?.category),
+      };
+    });
+
+    const success: any[] = [];
+    const failed: any[] = [];
+    const usedProductIds = new Set<string>();
+    const adjustedProductIds: Array<{ index: number; from: string; to: string }> = [];
+
+    const buildUniqueProductId = async (baseProductId: string): Promise<string> => {
+      let candidate = baseProductId;
+      let suffix = 0;
+
+      while (usedProductIds.has(candidate) || await Product.exists({ productId: candidate })) {
+        suffix += 1;
+        candidate = `${baseProductId}-${suffix}`;
+      }
+
+      return candidate;
+    };
+
+    for (let index = 0; index < normalizedProducts.length; index++) {
+      try {
+        const productData = { ...normalizedProducts[index] } as any;
+
+        if (typeof productData.productId === 'string' && productData.productId.trim()) {
+          const originalProductId = productData.productId.trim();
+          const uniqueProductId = await buildUniqueProductId(originalProductId);
+
+          if (uniqueProductId !== originalProductId) {
+            adjustedProductIds.push({ index, from: originalProductId, to: uniqueProductId });
+          }
+
+          productData.productId = uniqueProductId;
+          usedProductIds.add(uniqueProductId);
+        }
+
+        const product = await Product.create(productData);
+        success.push({
+          index,
+          id: product._id,
+          name: product.name,
+          productId: product.productId,
+        });
+      } catch (error: any) {
+        failed.push({
+          index,
+          error: error.message || 'Failed to create product',
+          product: normalizedProducts[index],
+        });
+      }
+    }
+
+    const statusCode = failed.length > 0 ? 207 : 201;
+
+    res.status(statusCode).json({
+      message: 'Bulk product insertion completed',
+      summary: {
+        total: products.length,
+        successful: success.length,
+        adjustedProductIds: adjustedProductIds.length,
+        failed: failed.length,
+      },
+      success,
+      adjustedProductIds,
+      failed,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+// Bulk mark existing products as best sellers
+export const bulkAllBestSellers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const payload = Array.isArray(req.body) ? req.body : req.body?.products;
+
+    if (!Array.isArray(payload) || payload.length === 0) {
+      res.status(400).json({ message: 'Products array is required and cannot be empty' });
+      return;
+    }
+
+    const rawProductIds = payload
+      .map((item: any) => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item.productId === 'string') return item.productId.trim();
+        return '';
+      })
+      .filter((productId: string) => productId.length > 0);
+
+    const uniqueProductIds = Array.from(new Set(rawProductIds));
+
+    if (uniqueProductIds.length === 0) {
+      res.status(400).json({ message: 'No valid productId values found in request' });
+      return;
+    }
+
+    const existingProducts = await Product.find(
+      { productId: { $in: uniqueProductIds } },
+      { productId: 1, isBestSeller: 1 }
+    ).lean();
+
+    const existingProductIds = new Set(existingProducts.map((p: any) => p.productId));
+    const alreadyBestSeller = existingProducts
+      .filter((p: any) => p.isBestSeller)
+      .map((p: any) => p.productId);
+
+    const notFound = uniqueProductIds.filter((productId) => !existingProductIds.has(productId));
+
+    const updateResult = await Product.updateMany(
+      { productId: { $in: uniqueProductIds }, isBestSeller: { $ne: true } },
+      { $set: { isBestSeller: true } }
+    );
+
+    res.status(200).json({
+      message: 'Bulk best-seller update completed',
+      summary: {
+        totalReceived: payload.length,
+        uniqueProductIds: uniqueProductIds.length,
+        matched: existingProducts.length,
+        updated: updateResult.modifiedCount,
+        alreadyBestSeller: alreadyBestSeller.length,
+        notFound: notFound.length,
+      },
+      alreadyBestSeller,
+      notFound,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
+  }
+};
+
+// Randomize ratings for all active products
+export const randomizeAllProductRatings = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const products = await Product.find({ isActive: true }, { _id: 1, productId: 1, ratings: 1 });
+
+    if (!products.length) {
+      res.status(200).json({ message: 'No active products found', updated: 0 });
+      return;
+    }
+
+    const ratingAverages = [4, 4.5, 5];
+    const ratingCounts = [9, 10, 11, 12];
+    const updatedProducts: Array<{ productId?: string; average: number; count: number }> = [];
+
+    for (const product of products) {
+      const average = ratingAverages[Math.floor(Math.random() * ratingAverages.length)];
+      const count = ratingCounts[Math.floor(Math.random() * ratingCounts.length)];
+
+      await Product.updateOne(
+        { _id: product._id },
+        {
+          $set: {
+            ratings: {
+              average,
+              count,
+            },
+          },
+        }
+      );
+
+      updatedProducts.push({
+        productId: product.productId,
+        average,
+        count,
+      });
+    }
+
+    res.status(200).json({
+      message: 'Ratings randomized successfully for active products',
+      updated: updatedProducts.length,
+      products: updatedProducts,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error });
   }
 };

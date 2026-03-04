@@ -1,10 +1,11 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema } from 'mongoose';
 
-export interface IProduct extends Document {
+export interface IProduct {
   productId?: string;
   name: string;
   description: string;
   category: string;
+  collection: string;
   price: number;
   originalPrice?: number;
   discount?: number;
@@ -21,7 +22,7 @@ export interface IProduct extends Document {
   };
   tags: string[];
   isActive: boolean;
-  isFeatured: boolean;
+  isBestSeller: boolean;
   ratings: {
     average: number;
     count: number;  
@@ -51,8 +52,22 @@ const ProductSchema: Schema = new Schema(
     category: {
       type: String,
       required: [true, 'Category is required'],
-      enum: ['sweets', 'namkeen', 'dry-fruits', 'gift-boxes', 'seasonal', 'other'],
-      default: 'sweets',
+      enum: [
+        'Andhra Sweets',
+        'Cashew Sweets',
+        'Bengali Sweets',
+        'Khoya Sweets',
+        'Laddu Sweets',
+        'Milk Sweets',
+        'Home Foods',
+        'Category Unspecified',
+      ],
+      default: 'Category Unspecified',
+    },
+    collection: {
+      type: String,
+      trim: true,
+      default: '',
     },
     price: {
       type: Number,
@@ -130,7 +145,7 @@ const ProductSchema: Schema = new Schema(
 ProductSchema.index({ name: 'text', description: 'text' });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ isActive: 1 });
-ProductSchema.index({ isFeatured: 1 });
+ProductSchema.index({ isBestSeller: 1 });
 ProductSchema.index({ price: 1 });
 ProductSchema.index({ productId: 1 }, { unique: true, sparse: true });
 

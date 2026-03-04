@@ -23,7 +23,7 @@ export const getAllPayments = async (req: Request, res: Response): Promise<void>
      
 export const getPaymentById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const payment = await Payment.findById(req.params.id)
+    const payment = await Payment.findById(req.params.id )
       .populate('userId', 'name email')
       .populate('orderId', 'orderNumber totalAmount');
     if (!payment) {
