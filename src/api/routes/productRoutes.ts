@@ -4,6 +4,8 @@ import {
   getProductById, 
   getProductsByCategory,
   getBestSellingProducts,
+  getSpecialCollection,
+  getSpecialCollections,
   searchProducts
 } from '../controllers/productController';
 import { validate } from '../middleware/validate';
@@ -27,6 +29,12 @@ router.get('/', getAllProducts);
 
 // Get best-selling products
 router.get('/best-sellers', getBestSellingProducts);
+
+// Get products where first collection value is not best-seller or empty
+router.get('/special-collections', getSpecialCollections);
+
+// Get active products grouped by non-empty collection name
+router.get('/special-collection', getSpecialCollection);
 
 // Get products by category
 router.get('/category/:category', validate(getProductsByCategorySchema), getProductsByCategory);

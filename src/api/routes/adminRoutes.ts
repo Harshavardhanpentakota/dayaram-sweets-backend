@@ -1,10 +1,14 @@
-import { Router } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import multer from 'multer';
 import { 
   createProduct, 
   updateProduct,
   deleteProduct,
   bulkAddProducts,
+  addBulkProductsByInput,
+  bulkAllBestSellers,
+  modifyCollection,
+  randomizeAllProductRatings,
   getAllProducts,
   getProductsByCategory
 } from '../controllers/productController';
@@ -37,13 +41,17 @@ import {
   toggleCouponStatus,
   getCouponStats
 } from '../controllers/couponController';
+import { cancelImageUpload, uploadImageToCloudinary } from '../controllers/cloudinaryController';
 import { validate } from '../middleware/validate';
 import { authenticateAdmin, authorizeAdmin } from '../middleware/auth';
 import { 
   createProductSchema, 
   updateProductSchema,
   getProductByIdSchema,
-  getProductsByCategorySchema
+  getProductsByCategorySchema,
+  addBulkProductsByInputSchema,
+  bulkAllBestSellersSchema,
+  modifyCollectionSchema
 } from '../validation/productValidation';
 import {
   adminLoginSchema,
@@ -87,6 +95,36 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 });
+
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+  },
+});
+
+const handleImageUpload = (req: Request, res: Response, next: NextFunction): void => {
+  imageUpload.single('image')(req, res, (error: any) => {
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ message: 'image upload failure: file size is greater than 10 mb' });
+      return;
+    }
+
+    if (error) {
+      res.status(400).json({ message: error.message || 'Image upload failed' });
+      return;
+    }
+
+    next();
+  });
+};
 
 const router = Router();
 
@@ -317,8 +355,8 @@ router.delete(
 // All Products - View all products (requires read access)
 router.get(
   '/products',
-  authenticateAdmin,
-  authorizeAdmin('read'),
+  // authenticateAdmin,
+  // authorizeAdmin('read'),
   getAllProducts
 );
 
@@ -334,17 +372,34 @@ router.get(
 // Add Product - Create a new product (requires write access)
 router.post(
   '/products',
+  // authenticateAdmin,
+  // authorizeAdmin('write'),
+  // validate(createProductSchema),
+  createProduct
+);
+
+// Upload image to Cloudinary (requires write access)
+router.post(
+  '/image/upload',
   authenticateAdmin,
   authorizeAdmin('write'),
-  validate(createProductSchema),
-  createProduct
+  handleImageUpload,
+  uploadImageToCloudinary
+);
+
+// Cancel image upload and remove image from Cloudinary (requires write access)
+router.post(
+  '/image/cancel',
+  authenticateAdmin,
+  authorizeAdmin('write'),
+  cancelImageUpload
 );
 
 // Update Product - Modify existing product (requires write access)
 router.put(
-  '/products/:id',
-  authenticateAdmin,
-  authorizeAdmin('write'),
+  '/products/:productId',
+  // authenticateAdmin,
+  // authorizeAdmin('write'),
   validate(updateProductSchema),
   updateProduct
 );
@@ -352,10 +407,19 @@ router.put(
 // Delete Product - Soft delete a product (requires write access)
 router.delete(
   '/products/:id',
-  authenticateAdmin,
-  authorizeAdmin('write'),
+  // authenticateAdmin,
+  // authorizeAdmin('write'),
   validate(getProductByIdSchema),
   deleteProduct
+);
+
+// Bulk Upload - Import products from Excel (requires write access)
+router.post(
+  '/products/bulk-input',
+  authenticateAdmin,
+  authorizeAdmin('write'),
+  validate(addBulkProductsByInputSchema),
+  addBulkProductsByInput
 );
 
 // Bulk Upload - Import products from Excel (requires write access)
@@ -365,6 +429,32 @@ router.post(
   authorizeAdmin('write'),
   upload.single('file'),
   bulkAddProducts
+);
+
+// Bulk mark products as best sellers (requires write access)
+router.post(
+  '/products/bulk-best-sellers',
+  authenticateAdmin,
+  authorizeAdmin('write'),
+  validate(bulkAllBestSellersSchema),
+  bulkAllBestSellers
+);
+
+// Bulk modify product collections (requires write access)
+router.patch(
+  '/products/modify-collection',
+  authenticateAdmin,
+  authorizeAdmin('write'),
+  validate(modifyCollectionSchema),
+  modifyCollection
+);
+
+// Randomize ratings for all active products
+router.post(
+  '/products/randomize-ratings',
+  authenticateAdmin,
+  authorizeAdmin('write'),
+  randomizeAllProductRatings
 );
 
 export default router;

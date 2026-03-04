@@ -11,6 +11,9 @@ export interface IPayment extends Document {
   status: 'pending' | 'success' | 'failed' | 'refunded';
   paymentDate?: Date;
   refundDate?: Date;
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
   metadata?: {
     gatewayTransactionId?: string;
     gatewayResponse?: any;
@@ -69,6 +72,18 @@ const PaymentSchema: Schema = new Schema(
     },
     refundDate: {
       type: Date,
+    },
+    razorpay_order_id: {
+      type: String,
+      trim: true,
+    },
+    razorpay_payment_id: {
+      type: String,
+      trim: true,
+    },
+    razorpay_signature: {
+      type: String,
+      trim: true,
     },
     metadata: {
       gatewayTransactionId: { type: String },

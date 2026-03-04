@@ -249,6 +249,75 @@ Upload an Excel file to add multiple products at once.
 - File size must be less than 5MB
 - Refer to BULK_UPLOAD_GUIDE.md for Excel format details
 
+### 10. Upload Image to Cloudinary
+**POST** `/api/admin/image/upload`
+
+**Authentication:** Required (Admin with write access)
+
+Upload a single image file and get a Cloudinary URL for product `images`.
+
+**Request:**
+- Content-Type: multipart/form-data
+- Header: `Authorization: Bearer <your-jwt-token>`
+- Field name: `image` (required)
+- Optional field: `folder` (Cloudinary folder path)
+
+**Validation:**
+- File must be an image (`image/*`)
+- File size must be less than or equal to 10MB
+- If file size is greater than 10MB, API returns:
+  - `image upload failure: file size is greater than 10 mb`
+- Cloudinary env keys must be configured:
+  - `CLOUDINARY_CLOUD_NAME`
+  - `CLOUDINARY_API_KEY`
+  - `CLOUDINARY_API_SECRET`
+
+**Response:**
+```json
+{
+  "message": "Image uploaded successfully",
+  "data": {
+    "url": "https://res.cloudinary.com/.../image/upload/...jpg",
+    "publicId": "dayaram-sweets/products/sample",
+    "format": "jpg",
+    "width": 1200,
+    "height": 800,
+    "bytes": 152340
+  }
+}
+```
+
+### 11. Cancel Image Upload (Delete from Cloudinary)
+**POST** `/api/admin/image/cancel`
+
+**Authentication:** Required (Admin with write access)
+
+Delete a previously uploaded Cloudinary image when user cancels from frontend.
+
+**Request Body:**
+```json
+{
+  "imageUrl": "https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/dayaram-sweets/products/sample.jpg",
+  "cancel": true
+}
+```
+
+**Validation:**
+- `imageUrl` is required and must be a valid Cloudinary URL
+- Cancel flag is required and must be true
+- Accepted cancel flags: `cancel`, `cancelled`, or `isCancelled`
+
+**Response:**
+```json
+{
+  "message": "Cancelled image removed from Cloudinary",
+  "data": {
+    "publicId": "dayaram-sweets/products/sample",
+    "result": "ok"
+  }
+}
+```
+
 ---
 
 ## Public Product Routes (No Authentication)
@@ -336,6 +405,27 @@ curl -X POST http://localhost:5000/api/admin/products \
 curl -X POST http://localhost:5000/api/admin/products/bulk-upload \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
   -F "file=@products.xlsx"
+```
+
+### Example 3: Upload Image to Cloudinary
+
+```bash
+curl -X POST http://localhost:5000/api/admin/image/upload \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -F "image=@product-image.jpg" \
+  -F "folder=dayaram-sweets/products"
+```
+
+### Example 4: Cancel Upload and Delete Image
+
+```bash
+curl -X POST http://localhost:5000/api/admin/image/cancel \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "imageUrl": "https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/dayaram-sweets/products/sample.jpg",
+    "cancel": true
+  }'
 ```
 
 ---

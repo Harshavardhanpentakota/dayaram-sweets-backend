@@ -12,12 +12,16 @@ import orderRoutes from './api/routes/orderRoutes';
 import paymentRoutes from './api/routes/paymentRoutes';
 import resetPasswordRoutes from './api/routes/resetPasswordRoutes';
 import adminRoutes from './api/routes/adminRoutes';
+import refundRoutes from './api/routes/refundRoutes';
+import adminRefundRoutes from './api/routes/adminRefundRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
+app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -29,7 +33,10 @@ app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/payment', paymentRoutes);
 app.use('/api/reset-password', resetPasswordRoutes);
+app.use('/api/refunds', refundRoutes);
+app.use('/api/admin/refunds', adminRefundRoutes);
 app.use('/api/admin', adminRoutes);
 // Health check
 app.get('/health', (req, res) => {

@@ -44,5 +44,29 @@ export const getPaymentsByOrderSchema = z.object({
   }),
 });
 
+export const createRazorpayOrderSchema = z.object({
+  body: z.object({
+    amount: z.number().positive('Amount must be greater than 0'),
+    currency: z.string().length(3, 'Currency must be 3 characters').optional(),
+    userId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid user ID').optional(),
+    orderId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid order ID').optional(),
+    receipt: z.string().min(3).max(40).optional(),
+    notes: z.record(z.string()).optional(),
+  }),
+});
+
+export const verifyRazorpayPaymentSchema = z.object({
+  body: z.object({
+    razorpay_order_id: z.string().min(1, 'razorpay_order_id is required'),
+    razorpay_payment_id: z.string().min(1, 'razorpay_payment_id is required'),
+    razorpay_signature: z.string().min(1, 'razorpay_signature is required'),
+    amount: z.number().positive('Amount must be greater than 0').optional(),
+    currency: z.string().length(3, 'Currency must be 3 characters').optional(),
+    userId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid user ID').optional(),
+  }),
+});
+
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
 export type UpdatePaymentStatusInput = z.infer<typeof updatePaymentStatusSchema>;
+export type CreateRazorpayOrderInput = z.infer<typeof createRazorpayOrderSchema>;
+export type VerifyRazorpayPaymentInput = z.infer<typeof verifyRazorpayPaymentSchema>;

@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+const couponCategories = [
+  'Andhra Sweets',
+  'Cashew Sweets',
+  'Bengali Sweets',
+  'Khoya Sweets',
+  'Laddu Sweets',
+  'Milk Sweets',
+  'Home Foods',
+  'Category Unspecified',
+] as const;
+
 // Create Coupon Schema
 export const createCouponSchema = z.object({
   body: z.object({
@@ -14,7 +25,7 @@ export const createCouponSchema = z.object({
     validUntil: z.string().or(z.date()).transform((val) => new Date(val)),
     isActive: z.boolean().optional().default(true),
     applicableCategories: z.array(
-      z.enum(['sweets', 'namkeen', 'dry-fruits', 'gift-boxes', 'seasonal', 'other'])
+      z.enum(couponCategories)
     ).optional(),
     applicableProducts: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
     excludedProducts: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
@@ -39,7 +50,7 @@ export const updateCouponSchema = z.object({
     validUntil: z.string().or(z.date()).transform((val) => new Date(val)).optional(),
     isActive: z.boolean().optional(),
     applicableCategories: z.array(
-      z.enum(['sweets', 'namkeen', 'dry-fruits', 'gift-boxes', 'seasonal', 'other'])
+      z.enum(couponCategories)
     ).optional(),
     applicableProducts: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
     excludedProducts: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
@@ -56,7 +67,7 @@ export const validateCouponSchema = z.object({
     code: z.string().min(3, 'Coupon code is required'),
     orderValue: z.number().min(0, 'Order value must be positive'),
     userId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid user ID').optional(),
-    category: z.enum(['sweets', 'namkeen', 'dry-fruits', 'gift-boxes', 'seasonal', 'other']).optional(),
+    category: z.enum(couponCategories).optional(),
     productIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
   }),
 });

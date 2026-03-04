@@ -5,7 +5,7 @@ const orderItemSchema = z.object({
   productId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid product ID'),
   name: z.string().min(1),
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
-  price: z.number().positive('Price must be positive'),
+  price: z.number().positive('Price must be positive'), 
   subtotal: z.number().min(0),
 });
 
@@ -18,6 +18,15 @@ const addressSchema = z.object({
   state: z.string().min(1, 'State is required'),
   zipCode: z.string().min(1, 'Zip code is required'),
   country: z.string().min(1, 'Country is required'),
+});
+
+const razorPayDetailsSchema = z.object({  
+  razorpay_order_id: z.string().min(1, 'razorpay_order_id is required'),
+  razorpay_payment_id: z.string().min(1, 'razorpay_payment_id is required'),
+  razorpay_signature: z.string().min(1, 'razorpay_signature is required'),
+  amount: z.number().positive('Amount must be greater than 0'),
+  currency: z.string().length(3, 'Currency must be 3 characters'),
+  userId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid user ID'),
 });
 
 // Create Order Schema
@@ -34,17 +43,21 @@ export const createOrderSchema = z.object({
     discount: z.number().min(0).optional(),
     notes: z.string().optional(),
     deliveryDate: z.string().datetime().optional().or(z.date().optional()),
+    razorPayDetails: razorPayDetailsSchema.optional(),
   }),
 });
 
 // Update Order Status Schema
+const orderStatusEntrySchema = z.object({
+  order_id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid order ID'),
+  status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
+});
+
 export const updateOrderStatusSchema = z.object({
-  body: z.object({
-    status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
-  }),
-  params: z.object({
-    id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid order ID'),
-  }),
+  body: z.union([
+    orderStatusEntrySchema,
+    z.array(orderStatusEntrySchema).min(1, 'At least one order status entry is required'),
+  ]),
 });
 
 // Get Order by ID Schema

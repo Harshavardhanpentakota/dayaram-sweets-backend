@@ -1,11 +1,46 @@
 import { Request, Response } from 'express';
 import Order from '../../db/models/Order';
 import Payment from '../../db/models/Payment';
+import Invoice from '../../db/models/Invoice';
+import { autoRequestRefundForCancelledOrder } from '../services/refundService';
 
 export const createOrder = async (req: Request, res: Response): Promise<void> => {
   try {
+    console.log('Request body:', req.body); // Log the request body for debugging
+    console.log(Order.schema.path('razorpayDetails'));
+    // Generate random 8-digit invoice_id
+    const invoice_id = Math.floor(Math.random() * 90000000) + 10000000;
+    req.body.invoice_id = invoice_id;
+    
+    // Create order first to get its _id
     const order = await Order.create(req.body);
-    res.status(201).json({ message: 'Order created successfully', order });
+    
+    // Create invoice entry with the order reference
+    const invoice = await Invoice.create({
+      invoice_id,
+      orderId: order._id,
+      userId: req.body.userId,
+      invoiceNumber: `INV-${invoice_id}`,
+      invoiceDate: new Date(),
+      items: req.body.items,
+      totalAmount: req.body.totalAmount,
+      shippingAddress: req.body.shippingAddress,
+      billingAddress: req.body.billingAddress || null,
+      shippingCost: req.body.shippingCost || 0,
+      tax: req.body.tax || 0,
+      discount: req.body.discount || 0,
+      paymentStatus: req.body.paymentStatus || 'pending',
+      paymentMethod: req.body.paymentMethod,
+      notes: req.body.notes || '',
+    });
+    
+    console.log('Order created:', order);
+    console.log('Invoice created:', invoice);
+    res.status(201).json({ 
+      message: 'Order and Invoice created successfully', 
+      order,
+      invoice 
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }
@@ -49,17 +84,55 @@ export const getUserOrders = async (req: Request, res: Response): Promise<void> 
 
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
+    const entries = Array.isArray(req.body) ? req.body : [req.body];
+
+    const updatedOrders = await Promise.all(
+      entries.map(async (entry: { order_id: string; status: string }) => {
+        const order = await Order.findByIdAndUpdate(
+          entry.order_id,
+          { status: entry.status },
+          { new: true }
+        );
+
+        // When an online, paid order is cancelled, auto-flag it for a refund.
+        if (order && entry.status === 'cancelled') {
+          try {
+            await autoRequestRefundForCancelledOrder(order);
+          } catch (refundError) {
+            console.error(
+              `Failed to auto-create refund for cancelled order ${entry.order_id}:`,
+              refundError
+            );
+          }
+        }
+
+        return {
+          order_id: entry.order_id,
+          order,
+        };
+      })
     );
-    if (!order) {
-      res.status(404).json({ message: 'Order not found' });
+
+    const success = updatedOrders
+      .filter((result) => result.order)
+      .map((result) => result.order);
+
+    const failed = updatedOrders
+      .filter((result) => !result.order)
+      .map((result) => result.order_id);
+
+    if (success.length === 0) {
+      res.status(404).json({ message: 'No matching orders found', failedOrderIds: failed });
       return;
     }
-    res.status(200).json({ message: 'Order status updated successfully', order });
+
+    res.status(200).json({
+      message: 'Order status updated successfully',
+      updatedCount: success.length,
+      failedCount: failed.length,
+      failedOrderIds: failed,
+      orders: success,
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error });
   }

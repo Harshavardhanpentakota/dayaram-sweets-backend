@@ -23,7 +23,7 @@ router.get('/', getAllOrders);
 router.get('/user/:userId', validate(getUserOrdersSchema), getUserOrders);
 router.get('/:id', validate(getOrderByIdSchema), getOrderById);
 router.get('/:id/invoice', validate(getOrderByIdSchema), generateInvoice);
-router.put('/:id/status', validate(updateOrderStatusSchema), updateOrderStatus);
+router.put('/status', validate(updateOrderStatusSchema), updateOrderStatus);
 router.delete('/:id', deleteOrder);
 
 export default router;

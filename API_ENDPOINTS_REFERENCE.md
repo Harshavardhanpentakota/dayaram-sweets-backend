@@ -227,15 +227,79 @@ Authorization: Bearer <JWT_TOKEN>
   - `code`: Coupon code (e.g., "WELCOME10")
 
 ### Create Coupon
-- **Endpoint:** `POST /api/admin/coupons`
-- **Access:** Admin with WRITE permission
-- **Inputs:**
   ```json
   {
     "code": "NEWYEAR2026",
     "description": "New Year special - 20% off",
     "discountType": "percentage",
     "discountValue": 20,
+
+### Upload Image to Cloudinary
+- **Endpoint:** `POST /api/admin/image/upload`
+- **Access:** Admin with WRITE permission
+- **Content-Type:** `multipart/form-data`
+- **Headers:**
+  - `Authorization: Bearer <JWT_TOKEN>`
+- **Form-Data Inputs:**
+  - `image` (required): Image file (field name must be exactly `image`)
+  - `folder` (optional): Cloudinary folder path string
+- **File Requirements:**
+  - Only image MIME types are accepted (`image/*`)
+  - Max size: 10MB
+  - If file is larger than 10MB, response is:
+    - `image upload failure: file size is greater than 10 mb`
+- **Environment Requirements:**
+  - `CLOUDINARY_CLOUD_NAME`
+  - `CLOUDINARY_API_KEY`
+  - `CLOUDINARY_API_SECRET`
+- **Success Response (201):**
+  ```json
+  {
+    "message": "Image uploaded successfully",
+    "data": {
+      "url": "https://res.cloudinary.com/.../image/upload/...jpg",
+      "publicId": "dayaram-sweets/products/sample",
+      "format": "jpg",
+      "width": 1200,
+      "height": 800,
+      "bytes": 152340
+    }
+  }
+  ```
+- **cURL Example:**
+  ```bash
+  curl -X POST http://localhost:5000/api/admin/image/upload \
+    -H "Authorization: Bearer <JWT_TOKEN>" \
+    -F "image=@C:/path/to/photo.jpg" \
+    -F "folder=dayaram-sweets/products"
+  ```
+
+### Cancel Image Upload (Delete from Cloudinary)
+- **Endpoint:** `POST /api/admin/image/cancel`
+- **Access:** Admin with WRITE permission
+- **Content-Type:** `application/json`
+- **Headers:**
+  - `Authorization: Bearer <JWT_TOKEN>`
+- **Inputs:**
+  ```json
+  {
+    "imageUrl": "https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/dayaram-sweets/products/sample.jpg",
+    "cancel": true
+  }
+  ```
+- **Notes:**
+  - `imageUrl` is required and must be a Cloudinary URL.
+  - Cancel flag can be any one of: `cancel`, `cancelled`, `isCancelled` and must be `true`.
+- **Success Response (200):**
+  ```json
+  {
+    "message": "Cancelled image removed from Cloudinary",
+    "data": {
+      "publicId": "dayaram-sweets/products/sample",
+      "result": "ok"
+    }
+  }
+  ```
     "minOrderValue": 500,
     "maxDiscountAmount": 200,
     "usageLimit": 1000,
@@ -244,6 +308,27 @@ Authorization: Bearer <JWT_TOKEN>
     "isActive": true,
     "applicableCategories": ["sweets", "gift-boxes"],
     "applicableProducts": ["64f5a8b9c1234567890abcde"],
+
+### Example 3: Upload Product Image to Cloudinary
+
+```bash
+curl -X POST http://localhost:5000/api/admin/image/upload \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -F "image=@product-image.jpg" \
+  -F "folder=dayaram-sweets/products"
+```
+
+### Example 4: Cancel Upload and Delete Image
+
+```bash
+curl -X POST http://localhost:5000/api/admin/image/cancel \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." \
+  -d '{
+    "imageUrl": "https://res.cloudinary.com/<cloud_name>/image/upload/v1234567890/dayaram-sweets/products/sample.jpg",
+    "cancel": true
+  }'
+```
     "excludedProducts": ["64f5a8b9c1234567890abcdf"],
     "firstOrderOnly": false
   }
@@ -347,6 +432,41 @@ Authorization: Bearer <JWT_TOKEN>
   - Max file size: 5MB
 - **Excel Format:** See BULK_UPLOAD_GUIDE.md
 
+### Modify Product Collection
+- **Endpoint:** `PATCH /api/admin/products/modify-collection`
+- **Access:** Admin with WRITE permission
+- **Headers:**
+  - `Authorization: Bearer <JWT_TOKEN>`
+- **Inputs:**
+  ```json
+  {
+    "collectionName": "winter-specials",
+    "isCollectionNameModified": false,
+    "products": [
+      { "productId": "KAJU-KATLI-001" },
+      { "_id": "67d1abcd1234abcd1234abcd" }
+    ]
+  }
+  ```
+- **Input Rules:**
+  - `collectionName`: Required string
+  - `isCollectionNameModified`: Optional boolean, default `false`
+  - `products`: Optional array when `isCollectionNameModified` is `true`
+  - Each product item must include either `productId` or `_id`
+- **Behavior:**
+  - Updates all sent products to the requested `collectionName`
+  - If `isCollectionNameModified` is `true`, all active products with non-empty collection names other than `collectionName` are also updated to `collectionName`
+- **Success Response:**
+  ```json
+  {
+    "message": "Collection updated successfully",
+    "collectionName": "winter-specials",
+    "explicitlyUpdatedCount": 2,
+    "reassignedCollectionCount": 5,
+    "isCollectionNameModified": true
+  }
+  ```
+
 ---
 
 # 2. PUBLIC PRODUCT ROUTES (`/api/products`)
@@ -375,6 +495,32 @@ Authorization: Bearer <JWT_TOKEN>
 - **Access:** Public
 - **Query Parameters:**
   - `limit`: Number (optional, default: 10)
+
+### Get Special Collection Groups
+- **Endpoint:** `GET /api/products/special-collection`
+- **Access:** Public
+- **Behavior:** Returns all active products where `collection !== ""`, grouped by collection name
+- **Success Response:**
+  ```json
+  [
+    {
+      "collection_name": "winter-specials",
+      "products": [
+        {
+          "_id": "67d1abcd1234abcd1234abcd",
+          "productId": "KAJU-KATLI-001",
+          "name": "Kaju Katli",
+          "collection": "winter-specials"
+        }
+      ]
+    }
+  ]
+  ```
+
+### Get Special Collection Products
+- **Endpoint:** `GET /api/products/special-collections`
+- **Access:** Public
+- **Behavior:** Returns active products where `collection` is neither empty nor `best-seller`
 
 ### Get Products by Category
 - **Endpoint:** `GET /api/products/category/:category`
@@ -733,6 +879,7 @@ Authorization: Bearer <JWT_TOKEN>
 - Update Product
 - Delete Product
 - Bulk Upload Products
+- Modify Product Collection
 
 ### User Authentication Required
 - User Profile (GET/PUT)
@@ -757,14 +904,14 @@ Authorization: Bearer <JWT_TOKEN>
 
 | Route Base | Total Endpoints | Public | Admin READ | Admin WRITE | User Auth |
 |------------|-----------------|--------|------------|-------------|-----------|
-| `/api/admin` | 34 | 1 | 12 | 20 | 0 |
-| `/api/products` | 5 | 5 | 0 | 0 | 0 |
+| `/api/admin` | 35 | 1 | 12 | 21 | 0 |
+| `/api/products` | 7 | 7 | 0 | 0 | 0 |
 | `/api/users` | 9 | 2 | 0 | 0 | 7 |
 | `/api/orders` | 7 | 0 | 0 | 3 | 4 |
 | `/api/payments` | 5 | 0 | 0 | 2 | 3 |
 | `/api/reset-password` | 3 | 3 | 0 | 0 | 0 |
 | `/health` | 1 | 1 | 0 | 0 | 0 |
-| **TOTAL** | **64** | **12** | **12** | **25** | **14** |
+| **TOTAL** | **67** | **14** | **12** | **26** | **14** |
 
 ---
 

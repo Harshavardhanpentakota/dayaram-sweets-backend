@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IOrderItem {
+export interface IInvoiceItem {
   productId: mongoose.Types.ObjectId;
   name: string;
   quantity: number;
@@ -8,20 +8,13 @@ export interface IOrderItem {
   subtotal: number;
 }
 
-export interface IRazorPayDetails {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-  amount: number;
-  currency: string;
-  userId: mongoose.Types.ObjectId;
-}
-
-export interface IOrder extends Document {
-  orderNumber: string;
+export interface IInvoice extends Document {
   invoice_id: number;
+  orderId: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
-  items: IOrderItem[];
+  invoiceNumber: string;
+  invoiceDate: Date;
+  items: IInvoiceItem[];
   totalAmount: number;
   shippingAddress: {
     name: string;
@@ -41,37 +34,42 @@ export interface IOrder extends Document {
     zipCode: string;
     country: string;
   };
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
-  paymentMethod: 'cod' | 'online' | 'card' | 'upi' | 'wallet';
-  refundStatus: 'none' | 'requested' | 'processing' | 'refunded' | 'partially_refunded' | 'failed';
-  refundedAmount: number;
   shippingCost: number;
   tax: number;
   discount: number;
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
+  paymentMethod: 'cod' | 'online' | 'card' | 'upi' | 'wallet';
   notes?: string;
-  deliveryDate?: Date;
-  razorpayDetails?: IRazorPayDetails;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const OrderSchema: Schema = new Schema(
+const InvoiceSchema: Schema = new Schema(
   {
-    orderNumber: {
-      type: String,
-      required: true,
-      unique: true,
-    },
     invoice_id: {
       type: Number,
       required: true,
+      unique: true,
+    },
+    orderId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Order',
+      required: [true, 'Order ID is required'],
       unique: true,
     },
     userId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'User ID is required'],
+    },
+    invoiceNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    invoiceDate: {
+      type: Date,
+      default: Date.now,
     },
     items: [
       {
@@ -124,31 +122,6 @@ const OrderSchema: Schema = new Schema(
       zipCode: { type: String },
       country: { type: String },
     },
-    status: {
-      type: String,
-      enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
-      default: 'pending',
-    },
-    paymentStatus: {
-      type: String,
-      enum: ['pending', 'completed', 'failed', 'refunded'],
-      default: 'pending',
-    },
-    paymentMethod: {
-      type: String,
-      enum: ['cod', 'online', 'card', 'upi', 'wallet'],
-      required: [true, 'Payment method is required'],
-    },
-    refundStatus: {
-      type: String,
-      enum: ['none', 'requested', 'processing', 'refunded', 'partially_refunded', 'failed'],
-      default: 'none',
-    },
-    refundedAmount: {
-      type: Number,
-      default: 0,
-      min: [0, 'Refunded amount cannot be negative'],
-    },
     shippingCost: {
       type: Number,
       default: 0,
@@ -164,38 +137,19 @@ const OrderSchema: Schema = new Schema(
       default: 0,
       min: [0, 'Discount cannot be negative'],
     },
+    paymentStatus: {
+      type: String,
+      enum: ['pending', 'completed', 'failed', 'refunded'],
+      default: 'pending',
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['cod', 'online', 'card', 'upi', 'wallet'],
+      required: [true, 'Payment method is required'],
+    },
     notes: {
       type: String,
       trim: true,
-    },
-    deliveryDate: {
-      type: Date,
-    },
-    razorpayDetails: {
-      razorpay_order_id: {
-        type: String,
-        trim: true,
-      },
-      razorpay_payment_id: {
-        type: String,
-        trim: true,
-      },
-      razorpay_signature: {
-        type: String,
-        trim: true,
-      },
-      amount: {
-        type: Number,
-      },
-      currency: {
-        type: String,
-        uppercase: true,
-        trim: true,
-      },
-      userId: {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
     },
   },
   {
@@ -203,21 +157,11 @@ const OrderSchema: Schema = new Schema(
   }
 );
 
-// Auto-generate order number
-OrderSchema.pre('save', async function (next) {
-  if (this.isNew) {
-    const count = await mongoose.model('Order').countDocuments();
-    this.orderNumber = `ORD${Date.now()}${count + 1}`;
-  }
-  next();
-});
-
 // Indexes for faster queries
-OrderSchema.index({ orderNumber: 1 });
-OrderSchema.index({ userId: 1 });
-OrderSchema.index({ status: 1 });
-OrderSchema.index({ paymentStatus: 1 });
-OrderSchema.index({ refundStatus: 1 });
-OrderSchema.index({ createdAt: -1 });
+InvoiceSchema.index({ invoice_id: 1 });
+InvoiceSchema.index({ orderId: 1 });
+InvoiceSchema.index({ userId: 1 });
+InvoiceSchema.index({ invoiceNumber: 1 });
+InvoiceSchema.index({ createdAt: -1 });
 
-export default mongoose.model<IOrder>('Order', OrderSchema);
+export default mongoose.model<IInvoice>('Invoice', InvoiceSchema);
