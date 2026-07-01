@@ -102,7 +102,6 @@ const CouponSchema: Schema = new Schema(
 );
 
 // Indexes for faster queries
-CouponSchema.index({ code: 1 });
 CouponSchema.index({ isActive: 1 });
 CouponSchema.index({ validFrom: 1, validUntil: 1 });
 

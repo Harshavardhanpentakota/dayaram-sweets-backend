@@ -46,7 +46,6 @@ const SettingsSchema: Schema = new Schema(
 );
 
 // Indexes for faster queries
-SettingsSchema.index({ key: 1 });
 SettingsSchema.index({ category: 1 });
 
 export default mongoose.model<ISettings>('Settings', SettingsSchema);

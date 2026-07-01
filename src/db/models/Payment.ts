@@ -112,7 +112,6 @@ PaymentSchema.pre('save', async function (next) {
 });
 
 // Indexes for faster queries
-PaymentSchema.index({ transactionId: 1 });
 PaymentSchema.index({ userId: 1 });
 PaymentSchema.index({ orderId: 1 });
 PaymentSchema.index({ status: 1 });

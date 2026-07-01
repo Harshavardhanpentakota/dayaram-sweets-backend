@@ -138,6 +138,7 @@ const ProductSchema: Schema = new Schema(
   },
   {
     timestamps: true,
+    suppressReservedKeysWarning: true,
   }
 );
 
@@ -147,6 +148,5 @@ ProductSchema.index({ category: 1 });
 ProductSchema.index({ isActive: 1 });
 ProductSchema.index({ isBestSeller: 1 });
 ProductSchema.index({ price: 1 });
-ProductSchema.index({ productId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model<IProduct>('Product', ProductSchema);

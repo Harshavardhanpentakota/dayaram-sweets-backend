@@ -158,10 +158,7 @@ const InvoiceSchema: Schema = new Schema(
 );
 
 // Indexes for faster queries
-InvoiceSchema.index({ invoice_id: 1 });
-InvoiceSchema.index({ orderId: 1 });
 InvoiceSchema.index({ userId: 1 });
-InvoiceSchema.index({ invoiceNumber: 1 });
 InvoiceSchema.index({ createdAt: -1 });
 
 export default mongoose.model<IInvoice>('Invoice', InvoiceSchema);
