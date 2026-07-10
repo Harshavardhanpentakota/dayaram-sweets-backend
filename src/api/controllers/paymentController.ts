@@ -219,7 +219,7 @@ export const verifyRazorpayPayment = async (req: Request, res: Response): Promis
       transactionId: `TXN${Date.now()}`,
       userId,
       // orderId: order._id,
-      amount: amount ? Math.round(Number(amount) * 100) : 0,
+      amount: amount ? Number(amount) : 0,
       currency,
       paymentMethod: 'online',
       paymentGateway: 'razorpay',

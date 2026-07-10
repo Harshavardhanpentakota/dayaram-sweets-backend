@@ -206,13 +206,16 @@ router.get(
   getAllSettings
 );
 
-// Get delivery charges specifically
+// Get delivery charges specifically (admin, auth required)
 router.get(
   '/settings/delivery-charges',
   authenticateAdmin,
   authorizeAdmin('read'),
   getDeliveryCharges
 );
+
+// Public: Get delivery settings for storefront (no auth)
+router.get('/public/delivery-settings', getDeliveryCharges);
 
 // Update or create delivery charge
 router.put(
@@ -374,7 +377,7 @@ router.post(
   '/products',
   // authenticateAdmin,
   // authorizeAdmin('write'),
-  // validate(createProductSchema),
+  validate(createProductSchema), // enforces images to be valid URLs (no file/base64)
   createProduct
 );
 

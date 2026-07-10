@@ -65,6 +65,63 @@ export const uploadImageToCloudinary = async (req: Request, res: Response): Prom
 	}
 };
 
+/**
+ * Generate a short-lived, signed set of params so the frontend can upload an
+ * image DIRECTLY to Cloudinary (no image bytes ever pass through this server).
+ *
+ * Flow:
+ *   1. Frontend calls GET /api/cloudinary-signature (authenticated).
+ *   2. Frontend POSTs the file to Cloudinary using the returned params.
+ *   3. Cloudinary returns a secure_url.
+ *   4. Frontend sends that url in `images` when creating the product.
+ *
+ * NOTE: every param included in `paramsToSign` (here: folder + timestamp) MUST
+ * be sent by the frontend to Cloudinary verbatim, or the signature check fails.
+ */
+export const getCloudinaryUploadSignature = async (req: Request, res: Response): Promise<void> => {
+	try {
+		const configError = ensureCloudinaryConfigured();
+		if (configError) {
+			res.status(500).json({ message: configError });
+			return;
+		}
+
+		const apiSecret = process.env.CLOUDINARY_API_SECRET as string;
+		const apiKey = process.env.CLOUDINARY_API_KEY as string;
+		const cloudName = process.env.CLOUDINARY_CLOUD_NAME as string;
+
+		const folder = typeof req.query.folder === 'string' && req.query.folder.trim()
+			? req.query.folder.trim()
+			: 'dayaram-sweets/products';
+
+		// Cloudinary expects the timestamp in seconds.
+		const timestamp = Math.round(Date.now() / 1000);
+
+		const paramsToSign: Record<string, string | number> = {
+			timestamp,
+			folder,
+		};
+
+		const signature = cloudinary.utils.api_sign_request(paramsToSign, apiSecret);
+
+		res.status(200).json({
+			message: 'Cloudinary upload signature generated',
+			data: {
+				signature,
+				timestamp,
+				folder,
+				apiKey,
+				cloudName,
+			},
+		});
+	} catch (error: any) {
+		res.status(500).json({
+			message: 'Failed to generate Cloudinary signature',
+			error: error?.message || 'Unknown error',
+		});
+	}
+};
+
 const extractPublicIdFromCloudinaryUrl = (imageUrl: string): string | null => {
 	try {
 		const parsedUrl = new URL(imageUrl);

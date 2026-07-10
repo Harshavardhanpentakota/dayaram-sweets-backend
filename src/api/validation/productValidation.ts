@@ -8,6 +8,7 @@ const productCategories = [
   'Laddu Sweets',
   'Milk Sweets',
   'Home Foods',
+  'Gift Boxes',
   'Category Unspecified',
 ] as const;
 

@@ -60,6 +60,7 @@ const ProductSchema: Schema = new Schema(
         'Laddu Sweets',
         'Milk Sweets',
         'Home Foods',
+        'Gift Boxes',
         'Category Unspecified',
       ],
       default: 'Category Unspecified',

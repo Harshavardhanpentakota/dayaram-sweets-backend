@@ -14,6 +14,7 @@ import resetPasswordRoutes from './api/routes/resetPasswordRoutes';
 import adminRoutes from './api/routes/adminRoutes';
 import refundRoutes from './api/routes/refundRoutes';
 import adminRefundRoutes from './api/routes/adminRefundRoutes';
+import cloudinaryRoutes from './api/routes/cloudinaryRoutes';
 
 const app: Application = express();
 const PORT = process.env.PORT || 5000;
@@ -22,8 +23,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Database connection
 connectDB();
@@ -38,6 +39,7 @@ app.use('/api/reset-password', resetPasswordRoutes);
 app.use('/api/refunds', refundRoutes);
 app.use('/api/admin/refunds', adminRefundRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/cloudinary-signature', cloudinaryRoutes);
 // Health check
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Server is running' });

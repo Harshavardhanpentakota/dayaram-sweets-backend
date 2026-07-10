@@ -41,7 +41,7 @@ export interface IOrder extends Document {
     zipCode: string;
     country: string;
   };
-  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: 'pending' | 'accepted' | 'delivered' | 'cancelled';
   paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded';
   paymentMethod: 'cod' | 'online' | 'card' | 'upi' | 'wallet';
   refundStatus: 'none' | 'requested' | 'processing' | 'refunded' | 'partially_refunded' | 'failed';
@@ -126,7 +126,7 @@ const OrderSchema: Schema = new Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
+      enum: ['pending', 'accepted', 'delivered', 'cancelled'],
       default: 'pending',
     },
     paymentStatus: {

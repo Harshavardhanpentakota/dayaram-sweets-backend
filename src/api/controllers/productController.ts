@@ -19,12 +19,14 @@ const CATEGORY_MAP: Record<string, string> = {
   'milk sweets': 'Milk Sweets',
   'home': 'Home Foods',
   'home foods': 'Home Foods',
+  'gift boxes': 'Gift Boxes',
+  'gift-boxes': 'Gift Boxes',
+  'giftboxes': 'Gift Boxes',
   'other': 'Category Unspecified',
   'category unspecified': 'Category Unspecified',
   'sweets': 'Category Unspecified',
   'namkeen': 'Category Unspecified',
   'dry-fruits': 'Category Unspecified',
-  'gift-boxes': 'Category Unspecified',
   'seasonal': 'Category Unspecified',
 };
 
@@ -54,7 +56,11 @@ export const getAllProducts = async (req: Request, res: Response): Promise<void>
 
 export const getProductById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await Product.findOne({ productId: req.params.productId });
+    const { productId } = req.params;
+    let product = await Product.findOne({ productId });
+    if (!product && mongoose.Types.ObjectId.isValid(productId)) {
+      product = await Product.findById(productId);
+    }
     if (!product) {
       res.status(404).json({ message: 'Product not found' });
       return;

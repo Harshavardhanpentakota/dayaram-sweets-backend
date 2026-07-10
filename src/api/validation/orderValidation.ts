@@ -50,7 +50,7 @@ export const createOrderSchema = z.object({
 // Update Order Status Schema
 const orderStatusEntrySchema = z.object({
   order_id: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid order ID'),
-  status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']),
+  status: z.enum(['pending', 'accepted', 'delivered', 'cancelled']),
 });
 
 export const updateOrderStatusSchema = z.object({
