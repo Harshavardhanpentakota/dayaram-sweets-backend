@@ -145,11 +145,17 @@ export const getSpecialCollection = async (req: Request, res: Response): Promise
 
 export const updateProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await Product.findOneAndUpdate(
-      { productId: req.params.productId },
+    const { productId } = req.params;
+    // Match by productId slug, or by Mongo _id (products created via the admin
+    // have no productId, so the client sends the _id instead).
+    let product = await Product.findOneAndUpdate(
+      { productId },
       req.body,
       { new: true }
     );
+    if (!product && mongoose.Types.ObjectId.isValid(productId)) {
+      product = await Product.findByIdAndUpdate(productId, req.body, { new: true });
+    }
     if (!product) {
       res.status(404).json({ message: 'Product not found' });
       return;
@@ -303,11 +309,17 @@ export const modifyCollection = async (req: Request, res: Response): Promise<voi
 
 export const deleteProduct = async (req: Request, res: Response): Promise<void> => {
   try {
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
+    const { productId } = req.params;
+    // Soft delete. Match by productId slug, or by Mongo _id (products created
+    // via the admin have no productId, so the client sends the _id instead).
+    let product = await Product.findOneAndUpdate(
+      { productId },
       { isActive: false },
       { new: true }
     );
+    if (!product && mongoose.Types.ObjectId.isValid(productId)) {
+      product = await Product.findByIdAndUpdate(productId, { isActive: false }, { new: true });
+    }
     if (!product) {
       res.status(404).json({ message: 'Product not found' });
       return;

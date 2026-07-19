@@ -409,7 +409,7 @@ router.put(
 
 // Delete Product - Soft delete a product (requires write access)
 router.delete(
-  '/products/:id',
+  '/products/:productId',
   // authenticateAdmin,
   // authorizeAdmin('write'),
   validate(getProductByIdSchema),
