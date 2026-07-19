@@ -17,8 +17,8 @@ export const getAllCoupons = async (req: Request, res: Response): Promise<void> 
     const coupons = await Coupon.find(filter)
       .sort(sortObj)
       .populate('createdBy', 'username email')
-      .populate('applicableProducts', 'name price')
-      .populate('excludedProducts', 'name price');
+      .populate('applicableProducts', 'name weightOptions')
+      .populate('excludedProducts', 'name weightOptions');
 
     res.status(200).json(coupons);
   } catch (error) {
@@ -32,8 +32,8 @@ export const getCouponByCode = async (req: Request, res: Response): Promise<void
     const { code } = req.params;
     const coupon = await Coupon.findOne({ code: code.toUpperCase() })
       .populate('createdBy', 'username email')
-      .populate('applicableProducts', 'name price')
-      .populate('excludedProducts', 'name price');
+      .populate('applicableProducts', 'name weightOptions')
+      .populate('excludedProducts', 'name weightOptions');
 
     if (!coupon) {
       res.status(404).json({ message: 'Coupon not found' });

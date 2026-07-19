@@ -1,17 +1,20 @@
 import mongoose, { Schema } from 'mongoose';
 
+export interface IWeightOption {
+  weight: string;
+  price: number;
+  originalPrice?: number;
+  stock: number;
+}
+
 export interface IProduct {
   productId?: string;
   name: string;
   description: string;
   category: string;
   collection: string;
-  price: number;
-  originalPrice?: number;
-  discount?: number;
-  stock: number;
+  weightOptions: IWeightOption[];
   images: string[];
-  weight?: string;
   ingredients?: string[];
   nutritionalInfo?: {
     calories?: number;
@@ -70,35 +73,40 @@ const ProductSchema: Schema = new Schema(
       trim: true,
       default: '',
     },
-    price: {
-      type: Number,
-      required: [true, 'Price is required'],
-      min: [0, 'Price cannot be negative'],
-    },
-    originalPrice: {
-      type: Number,
-      min: [0, 'Original price cannot be negative'],
-    },
-    discount: {
-      type: Number,
-      min: [0, 'Discount cannot be negative'],
-      max: [100, 'Discount cannot exceed 100%'],
-      default: 0,
-    },
-    stock: {
-      type: Number,
-      required: [true, 'Stock quantity is required'],
-      min: [0, 'Stock cannot be negative'],
-      default: 0,
+    weightOptions: {
+      type: [
+        {
+          weight: {
+            type: String,
+            required: [true, 'Weight is required'],
+            trim: true,
+          },
+          price: {
+            type: Number,
+            required: [true, 'Price is required'],
+            min: [0, 'Price cannot be negative'],
+          },
+          originalPrice: {
+            type: Number,
+            min: [0, 'Original price cannot be negative'],
+          },
+          stock: {
+            type: Number,
+            required: [true, 'Stock quantity is required'],
+            min: [0, 'Stock cannot be negative'],
+            default: 0,
+          },
+        },
+      ],
+      validate: {
+        validator: (options: unknown[]) => Array.isArray(options) && options.length > 0,
+        message: 'At least one weight option is required',
+      },
     },
     images: [{
       type: String,
       trim: true,
     }],
-    weight: {
-      type: String,
-      trim: true,
-    },
     ingredients: [{
       type: String,
       trim: true,
@@ -148,6 +156,6 @@ ProductSchema.index({ name: 'text', description: 'text' });
 ProductSchema.index({ category: 1 });
 ProductSchema.index({ isActive: 1 });
 ProductSchema.index({ isBestSeller: 1 });
-ProductSchema.index({ price: 1 });
+ProductSchema.index({ 'weightOptions.price': 1 });
 
 export default mongoose.model<IProduct>('Product', ProductSchema);

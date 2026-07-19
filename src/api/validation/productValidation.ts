@@ -12,17 +12,20 @@ const productCategories = [
   'Category Unspecified',
 ] as const;
 
+const weightOptionSchema = z.object({
+  weight: z.string().min(1, 'Weight is required'),
+  price: z.number().positive('Price must be positive'),
+  originalPrice: z.number().positive().optional(),
+  stock: z.number().int().min(0, 'Stock cannot be negative'),
+});
+
 const productBodySchema = z.object({
   name: z.string().min(2, 'Product name must be at least 2 characters').max(200),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   category: z.enum(productCategories),
   collection: z.string().optional(),
-  price: z.number().positive('Price must be positive'),
-  originalPrice: z.number().positive().optional(),
-  discount: z.number().min(0).max(100).optional(),
-  stock: z.number().int().min(0, 'Stock cannot be negative'),
+  weightOptions: z.array(weightOptionSchema).min(1, 'At least one weight option is required'),
   images: z.array(z.string().url('Invalid image URL')).optional(),
-  weight: z.string().optional(),
   ingredients: z.array(z.string()).optional(),
   nutritionalInfo: z.object({
     calories: z.number().min(0).optional(),
@@ -40,12 +43,8 @@ const bulkProductBodySchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   category: z.string().min(1, 'Category is required'),
   collection: z.string().optional(),
-  price: z.number().positive('Price must be positive'),
-  originalPrice: z.number().positive().optional(),
-  discount: z.number().min(0).max(100).optional(),
-  stock: z.number().int().min(0, 'Stock cannot be negative'),
+  weightOptions: z.array(weightOptionSchema).min(1, 'At least one weight option is required'),
   images: z.array(z.string()).optional(),
-  weight: z.string().optional(),
   ingredients: z.array(z.string()).optional(),
   nutritionalInfo: z.object({
     calories: z.number().min(0).optional(),
@@ -156,12 +155,8 @@ export const updateProductSchema = z.object({
     description: z.string().min(10).optional(),
     category: z.enum(productCategories).optional(),
     collection: z.string().optional(),
-    price: z.number().positive().optional(),
-    originalPrice: z.number().positive().optional(),
-    discount: z.number().min(0).max(100).optional(),
-    stock: z.number().int().min(0).optional(),
+    weightOptions: z.array(weightOptionSchema).min(1, 'At least one weight option is required').optional(),
     images: z.array(z.string().url()).optional(),
-    weight: z.string().optional(),
     ingredients: z.array(z.string()).optional(),
     nutritionalInfo: z.object({
       calories: z.number().min(0).optional(),

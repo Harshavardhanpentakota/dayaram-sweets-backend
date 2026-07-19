@@ -334,7 +334,8 @@ export const searchProducts = async (req: Request, res: Response): Promise<void>
       limit = '10'
     } = req.query;
 
-    // Build the filter object
+    // Build the base filter object (everything except price, which now lives
+    // inside the weightOptions array and is matched via a computed minPrice).
     const filter: any = { isActive: true };
 
     // Text search in name and description
@@ -348,13 +349,6 @@ export const searchProducts = async (req: Request, res: Response): Promise<void>
     // Filter by category
     if (category) {
       filter.category = category;
-    }
-
-    // Filter by price range
-    if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = Number(minPrice);
-      if (maxPrice) filter.price.$lte = Number(maxPrice);
     }
 
     // Filter by best seller
@@ -372,18 +366,42 @@ export const searchProducts = async (req: Request, res: Response): Promise<void>
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    // Sorting
+    // Sorting: 'price' now sorts by the cheapest weight option (minPrice).
     const sortOrder = order === 'asc' ? 1 : -1;
-    const sortObj: any = {};
-    sortObj[sort as string] = sortOrder;
+    const sortField = sort === 'price' ? 'minPrice' : (sort as string);
+    const sortObj: any = { [sortField]: sortOrder };
 
-    // Execute query
-    const products = await Product.find(filter)
-      .sort(sortObj)
-      .skip(skip)
-      .limit(limitNum);
+    // Price-range filter: match products whose cheapest option is in range.
+    const priceMatch: any = {};
+    if (minPrice) priceMatch.$gte = Number(minPrice);
+    if (maxPrice) priceMatch.$lte = Number(maxPrice);
 
-    const total = await Product.countDocuments(filter);
+    // Build the aggregation pipeline
+    const pipeline: any[] = [
+      { $match: filter },
+      { $addFields: { minPrice: { $min: '$weightOptions.price' } } },
+    ];
+
+    if (minPrice || maxPrice) {
+      pipeline.push({ $match: { minPrice: priceMatch } });
+    }
+
+    const result = await Product.aggregate([
+      ...pipeline,
+      {
+        $facet: {
+          products: [
+            { $sort: sortObj },
+            { $skip: skip },
+            { $limit: limitNum },
+          ],
+          totalCount: [{ $count: 'count' }],
+        },
+      },
+    ]);
+
+    const products = result[0]?.products ?? [];
+    const total = result[0]?.totalCount[0]?.count ?? 0;
 
     res.status(200).json({
       products,
@@ -432,26 +450,27 @@ export const bulkAddProducts = async (req: Request, res: Response): Promise<void
       try {
         const row: any = data[i];
         
-        // Map Excel columns to product fields
-        // Adjust these field names based on your Excel column headers
+        // Map Excel columns to product fields.
+        // Each Excel row is one product with a single weight option built from
+        // the weight/price/originalPrice/stock columns. Multi-option products
+        // are created via the admin UI or the JSON bulk import.
+        const weightOption: any = {
+          weight: String(row.weight || row.Weight || 'Default'),
+          price: Number(row.price || row.Price),
+          stock: row.stock !== undefined ? Number(row.stock) : (row.Stock !== undefined ? Number(row.Stock) : 0),
+        };
+        if (row.originalPrice || row.OriginalPrice) {
+          weightOption.originalPrice = Number(row.originalPrice || row.OriginalPrice);
+        }
+
         const productData: any = {
           name: row.name || row.Name,
           description: row.description || row.Description,
-          price: Number(row.price || row.Price),
           category: toCanonicalCategory(row.category || row.Category),
-          stock: row.stock !== undefined ? Number(row.stock) : (row.Stock !== undefined ? Number(row.Stock) : 0),
-          weight: row.weight || row.Weight,
+          weightOptions: [weightOption],
           isActive: row.isActive !== undefined ? row.isActive : (row.IsActive !== undefined ? row.IsActive : true),
           isBestSeller: row.isBestSeller || row.IsBestSeller || row.isFeatured || row.IsFeatured || false
         };
-
-        // Handle optional numeric fields
-        if (row.originalPrice || row.OriginalPrice) {
-          productData.originalPrice = Number(row.originalPrice || row.OriginalPrice);
-        }
-        if (row.discount || row.Discount) {
-          productData.discount = Number(row.discount || row.Discount);
-        }
 
         // Handle array fields (comma-separated in Excel)
         if (row.images || row.Images) {

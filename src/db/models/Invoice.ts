@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IInvoiceItem {
   productId: mongoose.Types.ObjectId;
   name: string;
+  weight: string;
   quantity: number;
   price: number;
   subtotal: number;
@@ -79,6 +80,10 @@ const InvoiceSchema: Schema = new Schema(
           required: true,
         },
         name: {
+          type: String,
+          required: true,
+        },
+        weight: {
           type: String,
           required: true,
         },

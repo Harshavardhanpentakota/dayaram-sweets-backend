@@ -4,8 +4,9 @@ import { z } from 'zod';
 const orderItemSchema = z.object({
   productId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid product ID'),
   name: z.string().min(1),
+  weight: z.string().min(1, 'Weight is required'),
   quantity: z.number().int().min(1, 'Quantity must be at least 1'),
-  price: z.number().positive('Price must be positive'), 
+  price: z.number().positive('Price must be positive'),
   subtotal: z.number().min(0),
 });
 

@@ -182,6 +182,7 @@ export const generateInvoice = async (req: Request, res: Response): Promise<void
       shippingAddress: order.shippingAddress,
       items: order.items.map((item) => ({
         productName: item.name,
+        weight: item.weight,
         category: (item.productId as any)?.category || 'N/A',
         quantity: item.quantity,
         unitPrice: item.price,
