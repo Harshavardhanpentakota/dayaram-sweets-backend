@@ -379,7 +379,9 @@ export const searchProducts = async (req: Request, res: Response): Promise<void>
     // Build the aggregation pipeline
     const pipeline: any[] = [
       { $match: filter },
-      { $addFields: { minPrice: { $min: '$weightOptions.price' } } },
+      // Cheapest option price, falling back to the legacy scalar price for
+      // pre-existing products that have no weightOptions.
+      { $addFields: { minPrice: { $ifNull: [{ $min: '$weightOptions.price' }, '$price'] } } },
     ];
 
     if (minPrice || maxPrice) {

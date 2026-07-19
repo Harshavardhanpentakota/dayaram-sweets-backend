@@ -24,7 +24,9 @@ const productBodySchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   category: z.enum(productCategories),
   collection: z.string().optional(),
-  weightOptions: z.array(weightOptionSchema).min(1, 'At least one weight option is required'),
+  // Optional at the service level; the admin form requires at least one option.
+  // Each option, when provided, is still validated.
+  weightOptions: z.array(weightOptionSchema).optional(),
   images: z.array(z.string().url('Invalid image URL')).optional(),
   ingredients: z.array(z.string()).optional(),
   nutritionalInfo: z.object({
@@ -43,7 +45,7 @@ const bulkProductBodySchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters'),
   category: z.string().min(1, 'Category is required'),
   collection: z.string().optional(),
-  weightOptions: z.array(weightOptionSchema).min(1, 'At least one weight option is required'),
+  weightOptions: z.array(weightOptionSchema).optional(),
   images: z.array(z.string()).optional(),
   ingredients: z.array(z.string()).optional(),
   nutritionalInfo: z.object({
@@ -155,7 +157,7 @@ export const updateProductSchema = z.object({
     description: z.string().min(10).optional(),
     category: z.enum(productCategories).optional(),
     collection: z.string().optional(),
-    weightOptions: z.array(weightOptionSchema).min(1, 'At least one weight option is required').optional(),
+    weightOptions: z.array(weightOptionSchema).optional(),
     images: z.array(z.string().url()).optional(),
     ingredients: z.array(z.string()).optional(),
     nutritionalInfo: z.object({

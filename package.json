@@ -8,8 +8,7 @@
     "dev": "nodemon src/index.ts",
     "build": "tsc",
     "watch": "tsc -w",
-    "create-admin": "ts-node scripts/createSuperAdmin.ts",
-    "migrate:weight-options": "ts-node scripts/migrateWeightOptions.ts"
+    "create-admin": "ts-node scripts/createSuperAdmin.ts"
   },
   "repository": {
     "type": "git",

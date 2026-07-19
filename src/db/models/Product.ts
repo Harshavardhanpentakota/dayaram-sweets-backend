@@ -14,6 +14,13 @@ export interface IProduct {
   category: string;
   collection: string;
   weightOptions: IWeightOption[];
+  // Legacy single-price fields — kept optional so pre-existing products still
+  // return their data. New products use weightOptions instead.
+  price?: number;
+  originalPrice?: number;
+  discount?: number;
+  stock?: number;
+  weight?: string;
   images: string[];
   ingredients?: string[];
   nutritionalInfo?: {
@@ -74,6 +81,9 @@ const ProductSchema: Schema = new Schema(
       default: '',
     },
     weightOptions: {
+      // New products are required (via Zod validation) to provide at least one
+      // option. No non-empty validator here so pre-existing products, which have
+      // an empty weightOptions, can still be re-saved (e.g. best-seller toggles).
       type: [
         {
           weight: {
@@ -98,10 +108,29 @@ const ProductSchema: Schema = new Schema(
           },
         },
       ],
-      validate: {
-        validator: (options: unknown[]) => Array.isArray(options) && options.length > 0,
-        message: 'At least one weight option is required',
-      },
+    },
+    // Legacy single-price fields — kept optional so pre-existing products still
+    // return their data. New products leave these unset and use weightOptions.
+    price: {
+      type: Number,
+      min: [0, 'Price cannot be negative'],
+    },
+    originalPrice: {
+      type: Number,
+      min: [0, 'Original price cannot be negative'],
+    },
+    discount: {
+      type: Number,
+      min: [0, 'Discount cannot be negative'],
+      max: [100, 'Discount cannot exceed 100%'],
+    },
+    stock: {
+      type: Number,
+      min: [0, 'Stock cannot be negative'],
+    },
+    weight: {
+      type: String,
+      trim: true,
     },
     images: [{
       type: String,
